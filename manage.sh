@@ -3,8 +3,8 @@
 # Dowload on $HOME
 
 # HOME=`eval echo ~$USER`
-# REPO_HOME="$HOME/fsm-data-pipeline"
-REPO_HOME="/home/skalogerakis/Documents/Workspace/fsm-data-pipeline"
+REPO_HOME="$HOME/fsm-data-pipeline"
+# REPO_HOME="/home/skalogerakis/Documents/Workspace/fsm-data-pipeline"
 DOWNLOADS="${HOME}/DOWNLOADS"
 KAFKA_HOME="${HOME}/kafka_2.12-3.3.2"
 FLINK_HOME="${HOME}/flink"
@@ -37,10 +37,12 @@ function install_utilities() {
     echo "$(date +'%d/%m/%y %T') Install necessary dependencies. This may take a while. Please wait"
 
     sudo apt-get update > /dev/null 2>&1
-    sudo apt-get install -y htop build-essential openjdk-8-jdk maven git docker-ce docker-ce-cli containerd.io docker-compose-plugin > /dev/null 2>&1
+    sudo apt-get install -y htop build-essential openjdk-8-jdk maven git > /dev/null 2>&1
     sudo timedatectl set-timezone Europe/Athens
 	cd ${HOME}
     mkdir -p $DOWNLOADS
+
+    sleep 3
 
     install_docker
     
@@ -52,6 +54,8 @@ function install_docker() {
     cd ${DOWNLOADS}
 
     sudo apt install -y apt-transport-https ca-certificates curl software-properties-common > /dev/null 2>&1
+
+    sleep 3
 
     # Add Docker GPG key
     curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
@@ -65,6 +69,8 @@ function install_docker() {
     # Install Docker
     sudo apt install -y docker-ce > /dev/null 2>&1
 
+    sleep 3
+    
     # Start and enable Docker service
     sudo systemctl start docker
     sudo systemctl enable docker
@@ -181,7 +187,7 @@ case "$ACTION" in
     install)
     	install_utilities
 	    # kafka_install
-    	#flink_install
+    	flink_install
         exit
 	    ;;
     build)
