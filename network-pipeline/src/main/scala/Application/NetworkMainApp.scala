@@ -47,11 +47,11 @@ object NetworkMainApp {
 
     val env = StreamExecutionEnvironment.getExecutionEnvironment
 
+    // Since this data is supposed to be static when don't need to execute and keep waiting for others to arrive
     val networkSource = FileSource.forRecordStreamFormat(new TextLineFormat(), new Path(S3_NETWORK_PATH)).build()
-
     val sourceExec: DataStream[String] = env.fromSource(networkSource, WatermarkStrategy.forMonotonousTimestamps(), "S3NetworkSource")
 
-    val flattenedNetworkStream: DataStream[NetworkSchema] = sourceExec.flatMap(new FlatMapFunction[String, NetworkSchema]{
+    val formattedNetworkStream: DataStream[NetworkSchema] = sourceExec.flatMap(new FlatMapFunction[String, NetworkSchema]{
 
       override def flatMap(input: String, collector: Collector[NetworkSchema]): Unit = {
         val nodeArr = input.split(" ").map(_.replace("NODE", "").trim).filter(_.nonEmpty)
@@ -63,12 +63,12 @@ object NetworkMainApp {
       }
     })
 
-    flattenedNetworkStream.print()
 
-    flattenedNetworkStream.addSink(JdbcSink.sink[NetworkSchema]("""
-                                              |INSERT INTO NETWORK (node, adj_node)
-                                              |VALUES (?, ?)
-                                              |""".stripMargin, new JdbcStatementBuilder[NetworkSchema] { // the way to expand the wildcards with actual values
+    formattedNetworkStream.print()
+    formattedNetworkStream.addSink(JdbcSink.sink[NetworkSchema]("""
+                                                                |INSERT INTO NETWORK (node, adj_node)
+                                                                |VALUES (?, ?)
+                                                                |""".stripMargin, new JdbcStatementBuilder[NetworkSchema] { // the way to expand the wildcards with actual values
 
 
           override def accept(statement: PreparedStatement, networkSchema: NetworkSchema): Unit = {
