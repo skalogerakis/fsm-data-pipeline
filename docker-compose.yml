@@ -1,11 +1,5 @@
 version: "3.9"
 
-# https://www.youtube.com/watch?v=FDBGsS3UVjw&ab_channel=RyanHill
-
-#  docker exec -it postgresql_db bash
-# psql -U admin -h postgresql_db -d productDb -p 5432
-# \d VISITS
-
 services:
     postgresql_db:
         image: postgres:latest
@@ -18,16 +12,8 @@ services:
             - "5432:5432"
         networks:
             - postgres-db-network
-        restart: always
         volumes: 
-            - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
-
-            # Why in docker-entrypoint-initdb.d/ ?
-# The official PostgreSQL Docker image https://hub.docker.com/_/postgres/ allows us to place SQL files in the /docker-entrypoint-initb.d folder, and the first time the service starts, it will import and execute those SQL files.
-
-# In our Postgres container, we will find this bash script /usr/local/bin/docker-entrypoint.sh where each *.sh, **.sql and *.*sql.gz file will be executed
-
-
+            - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql # Mount local file init.sql to execute on startup
     pgadmin:
         image: dpage/pgadmin4
         container_name: pgadmin
@@ -38,12 +24,6 @@ services:
             - '5050:80'
         networks:
             - postgres-db-network
-        restart: always
-        volumes: 
-            - pgadmin:/root/.pgadmin
-volumes:
-    database-data:
-    pgadmin:
 
 networks:
     postgres-db-network:

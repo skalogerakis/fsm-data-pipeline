@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS VISITS (
     task_type INT,
     engineer_skill_level INT,
     engineer_note INT,
-    outcome VARCHAR(200)
+    outcome VARCHAR(20)
 );
 
 -- CREATE NETWORK TABLE

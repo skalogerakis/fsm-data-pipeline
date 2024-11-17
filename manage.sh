@@ -8,27 +8,25 @@ DOWNLOADS="${HOME}/DOWNLOADS"
 KAFKA_HOME="${HOME}/kafka_2.12-3.3.2"
 FLINK_HOME="${HOME}/flink"
 
-USAGE_MSG="$0 <install, stop, start>"
+USAGE_MSG="$0 <install, build, visit, network, stop, kill>"
 
 PARALLELISM=1
 
 ##################### HELPING UTILITIES #####################
 
 function help() {
-    echo "Syntax: $0 install| start [-p parallelim] [-i inteval1] [-j interval2] | stop"
-    echo "options:"
-    echo "install   Intall the necessary software stack (utilities, processing platforms)"
-    echo "build     Build application from source code"
-    echo "start     Deploy and start the processes for fetching and analysing data"
-    echo "      optional start arguments:"
-    echo "      -p <number>  Flink parallelism (Default: 1)"
-    echo "      -i <number>  Interval 1 (Default 38)"
-    echo "      -j <number>  Interval 2 (Default 100)"
-    echo "      -c <minutes> Checkpointing interval in minutes (Default: no checkpointing)" 
-    echo "      -q <number>  Specify the reported queries. 1 for Q1, 2 for Q2. (Default report both queries)"
-    echo "stop      Stops processing and processing platform"
+    echo "Syntax: $0 install | build | visit | network | stop | kill"
     echo ""
-    echo "e.g. ./manage.sh start -p 2 -i 50 -j 90 -q 1"
+    echo "Options:"
+    echo ""
+    echo "install   Install the necessary software stack (utilities, processing platforms)"
+    echo "build     Builds both Visit and Network applications from source"
+    echo "visit     Executes Visit Data Application"
+    echo "network   Executes Network Data Application"
+    echo "stop      Stop services and cleans tmp data except postgres, pgdamin"
+    echo "kill      Terminate all services and clean all data"
+    echo ""
+    echo "e.g. ./manage.sh network"
 }
 
 
@@ -132,7 +130,7 @@ function flink_install() {
     flink_config
 }
 
-# FIXME ideally add config for the whole cluster
+
 function flink_config() {
     # sed -i -e "/taskmanager\.memory\.process\.size:/ s/: .*/: 3000m/" ${FLINK_HOME}/conf/flink-conf.yaml
     sed -i -e "/taskmanager\.numberOfTaskSlots:/ s/: .*/: ${PARALLELISM}/" ${FLINK_HOME}/conf/flink-conf.yaml 
@@ -170,7 +168,22 @@ function docker-cmp-close() {
     docker-compose -f docker-compose.yml down
 }
 
+##################### KAFKA UTILITIES (NOT USED) #####################
 
+function kafka_install() {
+    echo "$(date +'%d/%m/%y %T') Install Kafka"
+    cd ${DOWNLOADS}
+    wget --quiet --no-check-certificate https://dlcdn.apache.org/kafka/3.3.2/kafka_2.12-3.3.2.tgz
+    cd ${REPO_HOME}
+    tar -zxvf ${DOWNLOADS}/kafka_2.12-3.3.2.tgz > /dev/null 2>&1
+    echo "transaction.max.timeout.ms=90000000" >> kafka_2.12-3.3.2/config/server.properties
+}
+
+function kafka_stop() {
+    echo "$(date +'%d/%m/%y %T') Stop Kafka"
+    ${KAFKA_HOME}/bin/kafka-server-stop.sh
+    ${KAFKA_HOME}/bin/zookeeper-server-stop.sh
+}
 
 # Check num of arguments
 if [ $# -lt 1 ]; then
@@ -193,37 +206,43 @@ case "$ACTION" in
         application_build
         exit
         ;;
-    visit)    # process runs the processing app, must have already executed the ingest and ingest-stop
-        shift   # ignore "start" parameter and parse next params
+    visit)   
+        shift   # ignore "visit" parameter and parse next params in case we need more parameters like parallelism
         sudo sh -c "sync; echo 3 > /proc/sys/vm/drop_caches "
         docker-cmp-activate
         sleep 5
-        #kafka_create_q1_q2
         flink_cluster_start
         sleep 3
         visit_job_start
         exit
         ;;
-    network)    # process runs the processing app, must have already executed the ingest and ingest-stop
-        shift   # ignore "start" parameter and parse next params
+    network)   
+        shift   # ignore "network" parameter and parse next params in case we need more parameters like parallelism
         sudo sh -c "sync; echo 3 > /proc/sys/vm/drop_caches "
         docker-cmp-activate
         sleep 5
-        #kafka_create_q1_q2
         flink_cluster_start
         sleep 3
         network_job_start
         exit
         ;;
     stop)
-        # docker-cmp-close
+        # kafka_stop
         sleep 3
         flink_cluster_stop
-        #kafka_delete_q1_q2
         sudo sh -c "sync; echo 3 > /proc/sys/vm/drop_caches "
         flink_clean
         exit
-        ;;   
+        ;;
+    kill)
+        # kafka_stop
+        docker-cmp-close
+        sleep 3
+        flink_cluster_stop
+        sudo sh -c "sync; echo 3 > /proc/sys/vm/drop_caches "
+        flink_clean
+        exit
+        ;;      
     *)
         echo "Unknown argument $ACTION"
         echo ""
