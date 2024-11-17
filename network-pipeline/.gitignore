@@ -1,0 +1,4 @@
+target/*
+Logs/*
+.idea/*
+src/main/resources/*
