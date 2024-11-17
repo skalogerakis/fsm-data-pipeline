@@ -21,14 +21,17 @@ package Application
 import Schemas.VisitSchema
 import org.apache.flink.api.common.eventtime.WatermarkStrategy
 import org.apache.flink.api.common.functions.{FlatMapFunction, MapFunction}
+import org.apache.flink.api.java.io.TextInputFormat
 import org.apache.flink.connector.file.src.FileSource
 import org.apache.flink.connector.file.src.reader.TextLineFormat
 import org.apache.flink.connector.jdbc.{JdbcConnectionOptions, JdbcExecutionOptions, JdbcSink, JdbcStatementBuilder}
 import org.apache.flink.core.fs.Path
+import org.apache.flink.streaming.api.functions.source.FileProcessingMode
 import org.apache.flink.streaming.api.scala.{DataStream, StreamExecutionEnvironment, createTypeInformation}
 import org.apache.flink.util.Collector
 
 import java.sql.{PreparedStatement, Timestamp}
+import java.time.Duration
 
 
 object VisitMainApp {
@@ -48,10 +51,14 @@ object VisitMainApp {
 
     val env = StreamExecutionEnvironment.getExecutionEnvironment
 
-    val sourcePath = FileSource.forRecordStreamFormat(new TextLineFormat(), new Path(S3_VISITS_PATH)).build()
+    //Read once file and close once done
+//    val sourcePath = FileSource.forRecordStreamFormat(new TextLineFormat(), new Path(S3_VISITS_PATH)).build()
+//    val sourceExec: DataStream[String] = env.fromSource(sourcePath, WatermarkStrategy.forMonotonousTimestamps(), "S3VisitsSource")
 
-    val sourceExec: DataStream[String] = env.fromSource(sourcePath, WatermarkStrategy.forMonotonousTimestamps(), "S3VisitsSource")
-
+    val sourceExec = env.readFile(new TextInputFormat(new Path(S3_VISITS_PATH)),
+                                  S3_VISITS_PATH,
+                                  FileProcessingMode.PROCESS_CONTINUOUSLY,
+                                  Duration.ofSeconds(10).toMillis())  //Adjust to more periodically. For testing purposes
 
     val flattenedVisitStream = sourceExec.flatMap(new FlatMapFunction[String, VisitSchema]{
 
