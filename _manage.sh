@@ -1,11 +1,11 @@
 #!/bin/bash
 
-HOME=`eval echo ~$USER`
+# HOME=`eval echo ~$USER`
+HOME="/media/localdisk/skalogerakis"
 REPO_HOME=$HOME
-REPO_HOME="${REPO_HOME}/Documents/Workspace"
 DOWNLOADS="${REPO_HOME}/DOWNLOADS"
 KAFKA_HOME="${REPO_HOME}/kafka_2.12-3.3.2"
-FLINK_HOME="${HOME}/flink"
+FLINK_HOME="${REPO_HOME}/flink"
 FLINK_CHECKPOINT_DIR="${REPO_HOME}/flink_checkpoint"
 
 USAGE_MSG="$0 <install, stop, start>"
@@ -37,7 +37,7 @@ function install_utilities() {
     echo "$(date +'%d/%m/%y %T') Install necessary dependencies. This may take a while. Please wait"
     #    echo $(hostname -I | cut -d\  -f1) $(hostname) | sudo tee -a /etc/hosts
     sudo apt-get update > /dev/null 2>&1
-    sudo apt-get install -y htop build-essential openjdk-8-jdk maven git docker-ce docker-ce-cli containerd.io docker-compose-plugin > /dev/null 2>&1
+    sudo apt-get install -y htop build-essential openjdk-8-jdk maven git > /dev/null 2>&1
     sudo timedatectl set-timezone Europe/Athens
 	cd ${REPO_HOME}
     mkdir -p $DOWNLOADS
@@ -47,18 +47,14 @@ function install_utilities() {
 
 function flink_install() {
     echo "$(date +'%d/%m/%y %T') Install Flink"
-       # cd ${REPO_HOME}/${DOWNLOADS}
+    #    cd ${REPO_HOME}/${DOWNLOADS}
     cd ${DOWNLOADS}
     wget --quiet https://archive.apache.org/dist/flink/flink-1.14.3/flink-1.14.3-bin-scala_2.12.tgz
     tar -zxvf flink-1.14.3-bin-scala_2.12.tgz > /dev/null 2>&1
 
     cd ${REPO_HOME}
     ln -sf ${DOWNLOADS}/flink-1.14.3 ${FLINK_HOME}
-
-    cd ${FLINK_HOME}
-    mkdir -p "./plugins/s3-fs-hadoop"
-    cp ./opt/flink-s3-fs-hadoop-1.14.3.jar ./plugins/s3-fs-hadoop/
-
+    
     flink_config
 }
 
@@ -149,6 +145,25 @@ function kafka_stop() {
     ${KAFKA_HOME}/bin/zookeeper-server-stop.sh
 }
 
+function kafka_create_topics() {
+    echo "$(date +'%d/%m/%y %T') Create Kafka topics"
+    ${KAFKA_HOME}/bin/kafka-topics.sh --create --topic topic-serial --partitions 1 --replication-factor 1 --bootstrap-server localhost:9092
+    ${KAFKA_HOME}/bin/kafka-topics.sh --create --topic topic-parallel --partitions 32 --replication-factor 1 --bootstrap-server localhost:9092
+}
+
+
+function kafka_delete_q1_q2() {
+    echo "$(date +'%d/%m/%y %T') Delete Kafka topics for Q1 & Q2"
+    ${KAFKA_HOME}/bin/kafka-topics.sh --delete --topic topicQ1 --bootstrap-server localhost:9092
+    ${KAFKA_HOME}/bin/kafka-topics.sh --delete --topic topicQ2 --bootstrap-server localhost:9092
+}
+
+
+function kafka_create_q1_q2() {
+    echo "$(date +'%d/%m/%y %T') Re-create Kafka topics for Q1 & Q2"
+    ${KAFKA_HOME}/bin/kafka-topics.sh --create --topic topicQ1 --partitions 32 --replication-factor 1 --bootstrap-server localhost:9092
+    ${KAFKA_HOME}/bin/kafka-topics.sh --create --topic topicQ2 --partitions 32 --replication-factor 1 --bootstrap-server localhost:9092
+}
 
 function kafka_clean() {
     echo "$(date +'%d/%m/%y %T') Kafka clean"
@@ -162,17 +177,17 @@ function application_build() {
     echo "$(date +'%d/%m/%y %T') Build binaries"
 
     # use a predefined folder containig src code for TESTING
-    DATA_LOADER_HOME=${REPO_HOME}/fsm-data-pipeline/visit-pipeline
+    DATA_LOADER_HOME=${REPO_HOME}/DataIngestionCSV
     cd ${DATA_LOADER_HOME}
     mvn clean package
 
-    # FLINK_JOB=${REPO_HOME}/StockAnalysisOptUpt
-    # cd ${FLINK_JOB}
-    # mvn clean package
+    FLINK_JOB=${REPO_HOME}/StockAnalysisOptUpt
+    cd ${FLINK_JOB}
+    mvn clean package
 
-    # FLINK_JOB=${REPO_HOME}/StockAnalysisApp
-    # cd ${FLINK_JOB}
-    # mvn clean package
+    FLINK_JOB=${REPO_HOME}/StockAnalysisApp
+    cd ${FLINK_JOB}
+    mvn clean package
 }
 
 function ingest_job_start() {
@@ -189,11 +204,17 @@ function ingest_job_start() {
 function flink_job_start() {
     echo "$(date +'%d/%m/%y %T') Start flink job"
 #    PARALLELISM=1
-    APP_BIN="${REPO_HOME}/fsm-data-pipeline/visit-pipeline/target/visit-pipeline-0.1.jar"
+    APP_BIN="${REPO_HOME}/StockAnalysisOptUpt/target/StockAnalysisOptUpt-0.1.jar"
     APP_PARAMS="${J1_ARG} ${J2_ARG} ${CHECKPOINT_INTERVAL} ${FLINK_CHECKPOINT_DIR}"
     ${FLINK_HOME}/bin/flink run -d -p ${PARALLELISM} ${APP_BIN} ${APP_PARAMS}
 }
 
+function flink_serial_job_start() {
+    echo "$(date +'%d/%m/%y %T') Start flink job"
+    APP_BIN="${REPO_HOME}/StockAnalysisApp/target/StockAnalysisApp-0.1.jar"
+    APP_PARAMS="${J1_ARG} ${J2_ARG} ${CHECKPOINT_INTERVAL} ${FLINK_CHECKPOINT_DIR}"
+    ${FLINK_HOME}/bin/flink run -d -p ${PARALLELISM} ${APP_BIN} ${APP_PARAMS}
+}
 
 function platform_start() {
 	kafka_start
@@ -257,7 +278,7 @@ ACTION=$1
 case "$ACTION" in
     install)
     	install_utilities
-	    # kafka_install
+	    kafka_install
     	flink_install
         exit
 	    ;;
@@ -301,7 +322,26 @@ case "$ACTION" in
         sudo sh -c "sync; echo 3 > /proc/sys/vm/drop_caches "
         flink_clean
         exit
-        ;;        
+        ;;
+    serial)    
+        shift   
+        parse_start_args "$@"
+        echo "par: $PARALLELISM j1: $J1_ARG, j2: $J2_ARG, c: $CHECKPOINT_INTERVAL, q: $REPORT_MODE"
+        sudo sh -c "sync; echo 3 > /proc/sys/vm/drop_caches "
+        # flink_config
+        #kafka_create_q1_q2
+        flink_cluster_start
+        sleep 3
+        flink_serial_job_start
+        exit
+        ;;
+    serial-stop)
+        flink_cluster_stop
+        #kafka_delete_q1_q2
+        sudo sh -c "sync; echo 3 > /proc/sys/vm/drop_caches "
+        flink_clean
+        exit
+        ;;         
     stop)       #Stops both kafka and flink TM and JM
     	kafka_stop
 	    sleep 2
