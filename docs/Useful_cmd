@@ -1,0 +1,6 @@
+Useful cms
+
+- docker exec -it postgresql_db bash
+- psql -U admin -h postgresql_db -d productDb -p 5432
+- \d VISITS
+
