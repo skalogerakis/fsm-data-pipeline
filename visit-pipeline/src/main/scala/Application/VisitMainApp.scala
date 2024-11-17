@@ -19,7 +19,6 @@
 package Application
 
 import Schemas.VisitSchema
-import org.apache.flink.api.common.eventtime.WatermarkStrategy
 import org.apache.flink.api.common.functions.{FlatMapFunction, MapFunction}
 import org.apache.flink.api.java.io.TextInputFormat
 import org.apache.flink.connector.file.src.FileSource
@@ -35,9 +34,6 @@ import java.time.Duration
 
 
 object VisitMainApp {
-
-  //Ingestion using SQS
-//  https://medium.com/datareply/event-driven-file-ingestion-using-flink-source-api-cfe45e43f88b
 
   // Configuration Constants
   val S3_VISITS_PATH: String = "s3://fsm-bucket-kaloger/visits/"
