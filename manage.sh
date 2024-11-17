@@ -2,8 +2,8 @@
 
 
 # HOME=`eval echo ~$USER`
-# REPO_HOME="$HOME/fsm-data-pipeline"  
-REPO_HOME="/home/skalogerakis/Documents/Workspace/fsm-data-pipeline" # Local Testing
+REPO_HOME="$HOME/fsm-data-pipeline"  
+# REPO_HOME="/home/skalogerakis/Documents/Workspace/fsm-data-pipeline" # Local Testing
 DOWNLOADS="${HOME}/DOWNLOADS"
 KAFKA_HOME="${HOME}/kafka_2.12-3.3.2"
 FLINK_HOME="${HOME}/flink"
