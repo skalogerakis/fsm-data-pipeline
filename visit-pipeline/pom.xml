@@ -56,7 +56,6 @@ under the License.
 
 	<dependencies>
 
-
 		<!-- Apache Flink dependencies -->
 		<!-- These dependencies are provided, because they should not be packaged into the JAR file. -->
 		<dependency>
@@ -93,36 +92,13 @@ under the License.
 			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-connector-jdbc_${scala.binary.version}</artifactId>
 			<version>${flink.version}</version>
-<!--			<scope>compile</scope>-->
 		</dependency>
 
 		<dependency>
 			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-json</artifactId>
 			<version>${flink.version}</version>
-<!--			<scope>provided</scope>-->
 		</dependency>
-
-<!--		<dependency>-->
-<!--			<groupId>org.apache.flink</groupId>-->
-<!--			<artifactId>flink-table</artifactId>-->
-<!--			<version>${flink.version}</version>-->
-<!--			<type>pom</type>-->
-<!--			<scope>provided</scope>-->
-<!--		</dependency>-->
-
-<!--		<dependency>-->
-<!--			<groupId>org.apache.flink</groupId>-->
-<!--			<artifactId>flink-table-api-java-bridge_${scala.binary.version}</artifactId>-->
-<!--			<version>${flink.version}</version>-->
-<!--			<scope>provided</scope>-->
-<!--		</dependency>-->
-
-<!--		<dependency>-->
-<!--			<groupId>org.apache.flink</groupId>-->
-<!--			<artifactId>flink-table-api-java</artifactId>-->
-<!--			<version>${flink.version}</version>-->
-<!--		</dependency>-->
 
 		<!-- https://mvnrepository.com/artifact/org.apache.flink/flink-s3-fs-hadoop -->
 		<dependency>
@@ -138,14 +114,6 @@ under the License.
 			<artifactId>postgresql</artifactId>
 			<version>42.2.10</version>
 		</dependency>
-
-
-		<dependency>
-			<groupId>com.google.guava</groupId>
-			<artifactId>guava</artifactId>
-			<version>31.0.1-jre</version>
-		</dependency>
-
 
 		<dependency>
 			<groupId>javax.annotation</groupId>
@@ -212,42 +180,6 @@ under the License.
 
 	<build>
 		<plugins>
-
-			<plugin>
-				<groupId>com.github.os72</groupId>
-				<artifactId>protoc-jar-maven-plugin</artifactId>
-				<version>3.11.4</version>
-				<executions>
-					<execution>
-						<phase>generate-sources</phase>
-						<goals>
-							<goal>run</goal>
-						</goals>
-						<configuration>
-
-							<addProtoSources>all</addProtoSources>
-							<includeMavenTypes>direct</includeMavenTypes>
-
-							<inputDirectories>
-								<include>src/main/proto</include>
-							</inputDirectories>
-
-							<outputTargets>
-								<outputTarget>
-									<type>java</type>
-									<outputDirectory>src/main/scala</outputDirectory>
-								</outputTarget>
-								<outputTarget>
-									<type>grpc-java</type>
-									<pluginArtifact>io.grpc:protoc-gen-grpc-java:1.15.0</pluginArtifact>
-									<outputDirectory>src/main/scala</outputDirectory>
-								</outputTarget>
-							</outputTargets>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
-
 
 			<!-- We use the maven-shade plugin to create a fat jar that contains all necessary dependencies. -->
 			<!-- Change the value of <mainClass>...</mainClass> if your program entry point changes. -->

@@ -56,14 +56,16 @@ object VisitMainApp {
                                   FileProcessingMode.PROCESS_CONTINUOUSLY,
                                   Duration.ofSeconds(10).toMillis())  //Adjust to more periodically. For testing purposes
 
-    val flattenedVisitStream = sourceExec.flatMap(new FlatMapFunction[String, VisitSchema]{
+
+    // Clean and format data
+    val formattedVisitStream: DataStream[VisitSchema] = sourceExec.flatMap(new FlatMapFunction[String, VisitSchema]{
 
       override def flatMap(input: String, collector: Collector[VisitSchema]): Unit = {
 
         val stripVisits: String = input.stripPrefix("{").stripSuffix("}")
-        val pairs: Array[String] = stripVisits.split(",")
+        val fields: Array[String] = stripVisits.split(",")
 
-        val dataMap = pairs.map { pair =>
+        val dataMap = fields.map { pair =>
           // This regex does not take into account : into quotes
           val Array(key, value) = pair.split("(?!\\B\"[^\"]*):(?![^\"]*\"\\B)", 2).map(_.trim.replace("\"", ""))
           (key, value)
@@ -86,8 +88,8 @@ object VisitMainApp {
 
 
 
-    flattenedVisitStream.print()
-    flattenedVisitStream.addSink(JdbcSink.sink[VisitSchema]("""
+    formattedVisitStream.print()
+    formattedVisitStream.addSink(JdbcSink.sink[VisitSchema]("""
                                           |INSERT INTO VISITS (task_id, node_id, visit_id, visit_date, original_reported_date,
                                           | node_age, node_type, task_type, engineer_skill_level, engineer_note, outcome)
                                           |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -107,10 +109,18 @@ object VisitMainApp {
         statement.setInt(10, fsm.engineer_note)
         statement.setString(11, fsm.outcome)
       }
-    }, JdbcExecutionOptions.builder
+    },
+      /***
+       * A JDBC batch is executed as soon as
+       * -  the configured batch interval time is elapsed
+       * -  the maximum batch size is reached
+       * -  Flink checkpoint has started
+       */
+      JdbcExecutionOptions.builder
                           .withBatchSize(1000)
                           .withBatchIntervalMs(200)
-                          .withMaxRetries(5).build,
+                          .withMaxRetries(2).build,
+
       new JdbcConnectionOptions.JdbcConnectionOptionsBuilder()
         .withUrl(DB_URL)
         .withDriverName(DB_DRIVER)
