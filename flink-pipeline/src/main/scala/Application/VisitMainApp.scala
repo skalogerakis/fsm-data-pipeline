@@ -36,17 +36,24 @@ object VisitMainApp {
   //Ingestion using SQS
 //  https://medium.com/datareply/event-driven-file-ingestion-using-flink-source-api-cfe45e43f88b
 
+  // Configuration Constants
+  val S3_VISITS_PATH: String = "s3://fsm-bucket-kaloger/visits/"
+  val DB_URL: String = "jdbc:postgresql://localhost:5432/productDb"
+  val DB_USER: String = "admin"
+  val DB_PASSWORD: String = "admin1234"
+  val DB_DRIVER: String = "org.postgresql.Driver"
+
   @throws[Exception]
   def main(args: Array[String]): Unit = {
 
     val env = StreamExecutionEnvironment.getExecutionEnvironment
 
-    val sourcePath = FileSource.forRecordStreamFormat(new TextLineFormat(), new Path("s3://fsm-bucket-kaloger/visits/")).build()
+    val sourcePath = FileSource.forRecordStreamFormat(new TextLineFormat(), new Path(S3_VISITS_PATH)).build()
 
-    val sourceExec: DataStream[String] = env.fromSource(sourcePath, WatermarkStrategy.forMonotonousTimestamps(), "FileSource")
+    val sourceExec: DataStream[String] = env.fromSource(sourcePath, WatermarkStrategy.forMonotonousTimestamps(), "S3VisitsSource")
 
 
-    val flattenEngineer = sourceExec.flatMap(new FlatMapFunction[String, VisitSchema]{
+    val flattenedVisitStream = sourceExec.flatMap(new FlatMapFunction[String, VisitSchema]{
 
       override def flatMap(input: String, collector: Collector[VisitSchema]): Unit = {
 
@@ -76,8 +83,8 @@ object VisitMainApp {
 
 
 
-    flattenEngineer.print()
-    flattenEngineer.addSink(JdbcSink.sink[VisitSchema]("""
+    flattenedVisitStream.print()
+    flattenedVisitStream.addSink(JdbcSink.sink[VisitSchema]("""
                                           |INSERT INTO VISITS (task_id, node_id, visit_id, visit_date, original_reported_date,
                                           | node_age, node_type, task_type, engineer_skill_level, engineer_note, outcome)
                                           |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -102,11 +109,12 @@ object VisitMainApp {
                           .withBatchIntervalMs(200)
                           .withMaxRetries(5).build,
       new JdbcConnectionOptions.JdbcConnectionOptionsBuilder()
-              .withUrl("jdbc:postgresql://localhost:5432/productDb")
-              .withDriverName("org.postgresql.Driver")
-              .withUsername("admin")
-              .withPassword("admin1234")
-              .build))
+        .withUrl(DB_URL)
+        .withDriverName(DB_DRIVER)
+        .withUsername(DB_USER)
+        .withPassword(DB_PASSWORD)
+        .build()
+    ))
 
 
     env.execute("VisitMainApp")

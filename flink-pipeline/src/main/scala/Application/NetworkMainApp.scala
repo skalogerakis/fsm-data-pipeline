@@ -35,49 +35,58 @@ import java.sql.PreparedStatement
 
 object NetworkMainApp {
 
+  // Configuration Constants
+  val S3_NETWORK_PATH: String = "s3://fsm-bucket-kaloger/network/"
+  val DB_URL: String = "jdbc:postgresql://localhost:5432/productDb"
+  val DB_USER: String = "admin"
+  val DB_PASSWORD: String = "admin1234"
+  val DB_DRIVER: String = "org.postgresql.Driver"
+
   @throws[Exception]
   def main(args: Array[String]): Unit = {
 
     val env = StreamExecutionEnvironment.getExecutionEnvironment
 
-    val sourcePath = FileSource.forRecordStreamFormat(new TextLineFormat(), new Path("s3://fsm-bucket-kaloger/network/")).build()
+    val networkSource = FileSource.forRecordStreamFormat(new TextLineFormat(), new Path(S3_NETWORK_PATH)).build()
 
-    val sourceExec: DataStream[String] = env.fromSource(sourcePath, WatermarkStrategy.forMonotonousTimestamps(), "FileSource")
+    val sourceExec: DataStream[String] = env.fromSource(networkSource, WatermarkStrategy.forMonotonousTimestamps(), "S3NetworkSource")
 
-    val flattenEngineer = sourceExec.flatMap(new FlatMapFunction[String, NetworkSchema]{
+    val flattenedNetworkStream: DataStream[NetworkSchema] = sourceExec.flatMap(new FlatMapFunction[String, NetworkSchema]{
 
       override def flatMap(input: String, collector: Collector[NetworkSchema]): Unit = {
-        val nodeArr = input.split(" ")
+        val nodeArr = input.split(" ").map(_.replace("NODE", "").trim).filter(_.nonEmpty)
 
         // In case a node does have at least 1 adjacent node don't send anything
         if (nodeArr.size > 1)
-          nodeArr.tail.foreach(x => collector.collect(NetworkSchema(node = nodeArr(0).replace("NODE","").toInt, adj_node = x.replace("NODE","").toInt)))
+          nodeArr.tail.foreach(x => collector.collect(NetworkSchema(node = nodeArr.head.toInt, adj_node = x.toInt)))
 
       }
     })
-    flattenEngineer.print()
 
-    flattenEngineer.addSink(JdbcSink.sink[NetworkSchema]("""
+    flattenedNetworkStream.print()
+
+    flattenedNetworkStream.addSink(JdbcSink.sink[NetworkSchema]("""
                                               |INSERT INTO NETWORK (node, adj_node)
                                               |VALUES (?, ?)
                                               |""".stripMargin, new JdbcStatementBuilder[NetworkSchema] { // the way to expand the wildcards with actual values
 
 
-          override def accept(statement: PreparedStatement, fsm: NetworkSchema): Unit = {
-            statement.setInt(1, fsm.node)
-            statement.setInt(2, fsm.adj_node)
+          override def accept(statement: PreparedStatement, networkSchema: NetworkSchema): Unit = {
+            statement.setInt(1, networkSchema.node)
+            statement.setInt(2, networkSchema.adj_node)
 
           }
         }, JdbcExecutionOptions.builder
                               .withBatchSize(1000)
                               .withBatchIntervalMs(200)
                               .withMaxRetries(5).build,
-          new JdbcConnectionOptions.JdbcConnectionOptionsBuilder()
-                  .withUrl("jdbc:postgresql://localhost:5432/productDb")
-                  .withDriverName("org.postgresql.Driver")
-                  .withUsername("admin")
-                  .withPassword("admin1234")
-                  .build))
+      new JdbcConnectionOptions.JdbcConnectionOptionsBuilder()
+        .withUrl(DB_URL)
+        .withDriverName(DB_DRIVER)
+        .withUsername(DB_USER)
+        .withPassword(DB_PASSWORD)
+        .build()
+    ))
 
 
     env.execute("NetworkMainApp")
