@@ -1,4 +1,9 @@
 
+# High Level Design
+
+![Missing](/img/high-level-design.png)
+
+
 # Instructions to Execute on a New Machine/VM
 
 ## Prerequisites
