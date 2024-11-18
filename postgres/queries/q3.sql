@@ -1,18 +1,10 @@
--- DONE. Find all nodes within 2 hops of Node 94.
+-- Find all the nodes within 2 hops of Node 94
 
--- First find all those with one hop
-WITH first_hop AS (
-  SELECT adj_node AS hop_node
-  FROM NETWORK
-  WHERE node = 94
-),
--- Second hop
-second_hop AS (
-  SELECT adj_node AS hop_node
-  FROM NETWORK
-  WHERE node IN (SELECT hop_node FROM first_hop)
-)
-
-SELECT DISTINCT hop_node FROM first_hop
+SELECT DISTINCT n1.adj_node AS hop_node
+FROM network n1
+WHERE n1.node = 94
 UNION
-SELECT DISTINCT hop_node FROM second_hop;
+SELECT DISTINCT n2.adj_node AS hop_node
+FROM network n1
+JOIN network n2 ON n1.adj_node = n2.node
+WHERE n1.node = 94

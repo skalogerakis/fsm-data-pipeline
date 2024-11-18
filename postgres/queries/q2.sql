@@ -1,15 +1,15 @@
--- Find all tasks successfully completed after exactly 2 visits, 
--- where the engineer notes from both visits include at least 5 words in common.
+-- Find all tasks that were successfully completed after 2 visits and the 
+-- 2 engineer notes left after the visits include at least 5 words in common
 
-WITH task_visits AS (
+WITH success_visits AS (
   SELECT task_id, visit_id, engineer_note
   FROM visits
   WHERE outcome = 'SUCCESS'
+  AND visit_id = 2 
 )
-SELECT t1.task_id
-FROM task_visits t1
-JOIN task_visits t2
-  ON t1.task_id = t2.task_id
-  AND t1.visit_id < t2.visit_id -- To avoid self-join duplicates
-GROUP BY t1.task_id
-HAVING COUNT(DISTINCT t1.engineer_note) >= 5;
+
+SELECT s1.task_id
+FROM success_visits s1
+JOIN visits v1 ON v1.task_id = s1.task_id
+GROUP BY s1.task_id
+HAVING COUNT(DISTINCT s1.engineer_note) >= 5;
